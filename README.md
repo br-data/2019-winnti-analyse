@@ -1,15 +1,79 @@
-# Our analysis
+# Winnti analysis
+For a number of years now, a group of professional hackers has been busy spying on businesses all over the world: Winnti. It is believed to be a digital mercenary group controlled by China. For the first time, in a joint investigation, German public broadcasters BR and NDR are shedding light on how the hackers operate and how widespread they are.
 
-We, a team of reporters working with public broadcaster BR and NDR did an in-depth investigation on a group called *Winnti*. This group has infiltrated multiple companies around the world, for a couple of years by now- You can read about it [here](https://br24.de/winnti/english). After some initial digging around, we were made aware of so called **campaign identifiers**. In some instances, Winnti operators wrote the names of their targets directly into the malware, slightly obfucasted with a "rolling xor". In order to verify this, we first had to understand what a ["rolling xor"](https://my.safaribooksonline.com/book/networking/security/9780470613030/de-obfuscation/decoding_common_algorithms) is. One of our reporters wrote a script. It is not a very good script, but it does the trick.
+Read the full article on hackers for hire, conducting industrial espionage, here:
+- **BR24**: [Attacking the Heart of the German Industry](https://br24.de/winnti/english).
 
-After indeed finding some company names we reached out to [Moritz Contag](https://www.syssec.ruhr-uni-bochum.de/chair/staff/mcontag/). He wrote a much better script and thankfully allowed us to share it publicly. You can find the script in [this folder](https://github.com/br-data/2019-winnti-analysis/tree/master/script). It is called _parse.py_. You'll find a separate `Readme` for further instructions. [Silas Cutler](https://twitter.com/silascutler) helped us corroborate the findings. 
+## Background
+The search for affected company networks is mostly build around so-called **campaign identifiers**. In some instances, Winnti operators wrote the names of their targets directly into the malware, obfuscated with a [rolling XOR cipher](https://my.safaribooksonline.com/book/networking/security/9780470613030/de-obfuscation/decoding_common_algorithms). In a first step, we tried to verify the information we were provided with, using a (not very good) [python script](https://github.com/br-data/2019-winnti-analyse/blob/master/firsttry_hextoascii.py). We then used [yara](https://yara.readthedocs.io) rules to hunt for Winnti samples. The yara rules we used are included in this repo, hopefully they prove useful to other researchers. 
 
-We also decided to publish some yara rules along with the article. They helped us to hunt for these samples. Maybe it is of help for some researchers out there. 
+Another way of finding networks with Winnti infections is [this Nmap script](https://github.com/TKCERT/winnti-nmap-script) by the Thyssenkrupp CERT.
 
-# Unsere Analyse
+## Analysis
+An execellent script for extracting the configuration details from a Winnti sample was written by [Moritz Contag](https://www.syssec.ruhr-uni-bochum.de/chair/staff/mcontag/). He thankfully allowed us to share it. Here is how to use it:
 
-Wir, ein Team von Reportern und Reporterinnen des BR und NDR, haben uns in einer gemeinsamen Recherche ausführlich mit einer professionellen Hackergruppe beschäftigt. IT-Sicherheitsexperten nennen sie *Winnti*. Der Gruppe gelingt es seit Jahren, Unternehmensnetzwerke auszuspionieren – auch von DAX-Konzernen. Mehr zu der Recherche [hier](https://br24.de/winnti). Nach ein paar ersten Gesprächen wurde wir auf so genannte "Kampagnen-Hinweise" aufmerksam gemacht. In einigen Fällen sollen die Winnti-Hacker den Namen des Unternehmens direkt in die Schadsoftware geschrieben haben. Die Namen seien leicht verschleiert gewesen, mit einem "rolling xor". Wir mussten erst einmal verstehen, was ein ["rolling xor"](https://my.safaribooksonline.com/book/networking/security/9780470613030/de-obfuscation/decoding_common_algorithms) ist. Anschließend hat einer unserer Reporter ein Python-Skript geschrieben. Es ist kein sonderlich gutes Skript, aber erfüllt seine Aufgabe.
+### Requirements
+The script requires `lief` in version 0.9 to be installed and thus is currently tied to Python 2.7. The dependency can be installed running `pip` on the command line:
 
-Nachdem wir tatsächlich auf Unternehmensnamen stießen, habemn wir uns an [Moritz Contag](https://www.syssec.ruhr-uni-bochum.de/chair/staff/mcontag/) gewendet. Er hat ein viel besseres Skript geschrieben und uns netterweise erlaubt, es zu veröffentlichen. Das Skript [findet sich hier](https://github.com/br-data/2019-winnti-analysis/tree/master/script). Es heißt _parse,py_. Eine `Readme`zur Bedienung ist dabei. [Silas Cutler ](https://twitter.com/silascutler) hat die Ergebnisse von Moritz bestätigt.
+```
+pip2 install -r requirements.txt
+```
 
-Wir haben uns auch dazu entschieden, ein paar Yara-Regeln mit zu veröffentlichen. Sie waren hilfreich, um Sample zu finden. Da das vielleicht hilfreich für ein paar IT-Sicherheitsforscher sein könnte, veröffentlichen wir auch diese Regeln.
+### Usage
+To extract the configuration of multiple Winnti samples, simply pass the directory to the script. The script will also recurse into subdirectory and blindly try to parse each file it encounters.
+
+The script does not try to identify Winnti samples and might produce incoherent output if the sample looks too different. Currently, it tries to parse configuration information stored in the executable's _overlay_ as well as _inline_ configurations indicated by a special marker. Further, it also tries to repair broken or "encrypted" files before processing them.
+
+It is recommended to name the samples according to their, e.g., SHA-256 hash for better identification.
+
+To scan a directory called `samples`, simply invoke the script as follows:
+```
+$ python2 parse.py ./samples
+
+----------------------------------------------------------------------------------------------------
+
+./9c3415507b38694d65262e28f73c3fade5038e455b83d41060f024403c26c9ee: Parsed configuration (overlay).
+
+- Size:    0x50E
+- Type:    exe 
+- Configuration:
+
+	+0x000:  ""
+	+0x304:  "1"
+	+0x324:  "shinetsu"
+	+0x356:  4B A0 D6 05 
+	+0x3C2:  "HpInsightEx.dll"
+	+0x3E2:  "kb25489.dat"
+	+0x402:  "HPSupportService"
+	+0x442:  "HP Insight Extension Support"
+	+0x50A:  A9 A1 A5 A6 
+
+----------------------------------------------------------------------------------------------------
+
+./585fa6bbc8bc9dbd8821a0855432c911cf828e834ec86e27546b46652afbfa5e: Parsed configuration (overlay).
+
+- Size:    0x048
+- Type:    dll exe 
+- Exports: #3
+           GetFilterVersion
+           HttpFilterProc
+           TerminateFilter
+
+- Configuration:
+
+	+0x000:  "DEHENSV533-IIS"
+	+0x020:  "de.henkelgroup.net"
+	+0x044:  99 DE DF E0 
+
+```
+
+## Acknowledgments
+- [Moritz Contag](https://www.syssec.ruhr-uni-bochum.de/chair/staff/mcontag/) for writing the great script and allowing us to share it
+- [Silas Cutler](https://twitter.com/silascutler) who helped us a great deal to corroborate our findings
+
+## Contact
+BR Data is a data-driven investigative unit at the German public broadcaster Bayerischer Rundfunk. We are a team of journalists, developers and data scientist. We specialize in data- and document-driven research and interactive storytelling.
+
+Please send us your questions and feedback:
+- Twitter: [@br_data](https://twitter.com/br_data)
+- E-Mail: [data@br.de](mailto:data@br.de)
